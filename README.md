@@ -1,6 +1,6 @@
 # NAFLD-NASH
 scripts associated with NAFLD-NASH project
 
-`Alignment` - use CellRanger to align fastq files
+`alignment` - use CellRanger to align fastq files
 
-`Preprocessing` - read count matrices into Seurat, and preprocess gene expression data. Add cell type annotations, and apply Harmony intergration
+`pre-processing` - read count matrices into Seurat, and preprocess gene expression data. Add cell type annotations, and apply Harmony integration.
