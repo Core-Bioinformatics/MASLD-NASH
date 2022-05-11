@@ -1,0 +1,200 @@
+---
+title: "Pre-process Gribben samples"
+author: "Ruben Chazarra Gil"
+date: "22/02/2021"
+output: html_document
+---
+
+## 0. Goal 
+The *goal* of this document is to generate a Seurat object per sample
+
+Later we will merge add Meta data etc 
+
+```{r}
+library(Seurat)
+library(data.table)
+library(Matrix)
+```
+
+
+## 1. Load data
+```{r}
+import_path = "/sutherland-scratch/rc845/Vallier/NAFLD-Gribben/2.CR_output/"
+
+# where to look within each CR output for the counts matrix either:
+matrix_path = "outs/filtered_feature_bc_matrix/" # "raw" CR output
+
+out_path = "/sutherland-scratch/rc845/Vallier/NAFLD-Gribben/4.Analysis/1.Preprocess_data/1.Pre-process-data/Pre-processed_data/1.Indv_samples/2.Lists_objects/Batch_Dec2021_v2_+id98+testSamples/"
+
+suppressPackageStartupMessages(require(Seurat))
+
+# get the files which will be excluded
+failedQC <- c('SLX-20270-SITTC3','SLX-20289-SITTA1','SLX-20289-SITTB1',
+'SLX-20289-SITTC1','SLX-20289-SITTD1','SLX-20289-SITTH1','SLX-20289-SITTH5',
+'SLX-20289-SITTE1', 'SLX-20289-SITTF1', 'SLX-21151-SITTA6')
+
+already_processed <- c('SLX-20270-SITTD8','SLX-20270-SITTE8','SLX-20290-SITTD5',
+                       'SLX-20290-SITTE5')
+excluded <- c(failedQC, already_processed)
+
+# get the Aug2021 files
+files <- list.dirs(path=import_path, recursive=F, full.names=F)
+slx20270 <- files[grepl('SLX-20270', files)] # 10 files
+slx20289 <- files[grepl('SLX-20289', files)] # 12 files
+slx20290 <- files[grepl('SLX-20290', files)] # 9 files
+slx20793 <- files[grepl('SLX-20793', files)] # 12 files
+augFiles <- c(slx20270, slx20289, slx20290, slx20793)
+
+# get the dec 2021 files
+slx21151 <- files[grepl('SLX-21151', files)] # 2 files
+slx21153 <- files[grepl('SLX-21153', files)] # 3 files
+slx21155 <- files[grepl('SLX-21155', files)] # 3 files
+slx20985 <- files[grepl('SLX-20985', files)] # 1 files
+id98 <- files[grepl('SLX-21151-SITTF7', files)]
+
+decFiles <- c(slx21151, slx21153, slx21155, slx20985, id98, testSamples)
+
+newFiles <- c(augFiles, decFiles)
+```
+
+
+```{r}
+# load the new data as Seurat objects
+# and add to the object list
+
+f <- newFiles[1]
+seu_list <- list()
+c = 0
+for (f in newFiles) {
+  if (!(f %in% excluded)) {
+    c = c + 1
+    print(f)
+    
+    # if using CR output
+    if (grepl('^outs/filtered_feature_bc_matrix', matrix_path)) {
+      # directly read CR output
+      curr.obj <- CreateSeuratObject(
+        counts = Read10X(paste0(import_path, f, '/', matrix_path)),
+        project=f,
+        min.cells = 3,
+        min.features = 200)
+      
+      m <- curr.obj@meta.data
+      tmp <- curr.obj@assays$RNA@counts
+    } 
+    seu_list[[f]] <- curr.obj
+  }
+}
+print(c)
+```
+
+
+## 3. Also load the 22 samles Ruben has been using (18 + 4 in "collaborators data")
+```{r}
+# the first 18 samples
+datadir <- '/sutherland-scratch/rc845/Vallier/NAFLD-Gribben/2.CR_output/'
+sampleDirs <- list(c('1.SIGA-A4-v5', 'SLX-19591-SIGAA4'),
+                   c('2.SIGA-H3-v5', 'SLX-19693-SIGAH3'),
+                   c('3.SIGA-H11-v5', 'SLX-19693-SIGAH11'),
+                   c('4.SITT-C3-bam', 'SLX-19750-SITTC3'),
+                   c('5.SITT-D3-bam', 'SLX-19750-SITTD3'),
+                   c('6.SITT-A2-bam', 'SLX-19940-SITTA2'),
+                   c('7.SITT-C2-bam', 'SLX-19940-SITTC2'),
+                   c('8.SITT-E11-bam', 'SLX-19940-SITTE11'),
+                   c('9.SITT-F11-bam', 'SLX-19940-SITTF11'),
+                   c('10.SITT-G11-bam', 'SLX-19940-SITTG11'),
+                   c('11.SITT-A5', 'SLX-20150-SITTA5'),
+                   c('12.SITT-B5', 'SLX-20150-SITTB5'),
+                   c('13.SITT-C5', 'SLX-20150-SITTC5'),
+                   c('14.SITT-H12', 'SLX-20150-SITTH12'),
+                   c('15.SITT-C1', 'SLX-20266-SITTC1'),
+                   c('16.SITT-D1', 'SLX-20266-SITTD1'),
+                   c('17.SITT-E1', 'SLX-20266-SITTE1'),
+                   c('18.SITT-G12', 'SLX-20266-SITTG12')
+)
+    
+f <- sampleDirs[1]
+
+firstList <- list()
+for (sample in sampleDirs) {
+  print(sample[1])
+  
+  if (grepl('^outs/filtered_feature_bc_matrix', matrix_path)) {
+      # directly read CR output
+      curr.obj <- CreateSeuratObject(
+        counts = Read10X(paste0(datadir, sample[1], '/', matrix_path)),
+        project=sample[2],
+        min.cells = 3,
+        min.features = 200)
+  } 
+  
+  if (grepl('normalised_filtered_feature_bc_matrix', matrix_path)) {
+      # read denoised tables output by 0.DCA_denoise_CR_output.ipynb
+      counts <- fread(paste0(datadir, sample[1], '/', matrix_path, 'matrix.tsv.gz'), header=T)
+      counts$V1 <- NULL
+      counts[counts < 0.5] <- 0
+      counts <- as.matrix(counts)
+      counts <- as(counts, 'dgCMatrix')
+
+      barcodes <- fread(paste0(datadir, sample[1], '/', matrix_path, 'barcodes.tsv.gz'), header=T)
+      barcodes <- barcodes$V1
+      features <- fread(paste0(datadir, sample[1], '/', matrix_path, 'features.tsv.gz'), header=T)
+      genes <- features$V1
+      
+      rownames(counts) <- barcodes
+      colnames(counts) <- genes
+      counts <- t(counts)
+
+      curr.obj <- CreateSeuratObject(counts=counts,
+                                     project=sample[2],
+                                     min.cells=3,
+                                     min.features=200)
+    }
+  
+  firstList[[sample[2]]] <- curr.obj
+}
+names(firstList)
+```
+
+
+```{r}
+# second 4 samples "collaborators data"
+datadir <- '/sutherland-scratch/rc845/Vallier/NAFLD-Gribben/2.CR_output/Collaborators_Data/'
+sampleDirs <- list(
+  c('SITT-D5', 'SLX-20290-SITTD5'),
+  c('SITT-D8', 'SLX-20270-SITTD8'),
+  c('SITT-E5', 'SLX-20290-SITTE5'),
+  c('SITT-E8', 'SLX-20270-SITTE8')
+)
+    
+f <- sampleDirs[1]
+
+secondList <- list()
+for (sample in sampleDirs) {
+    print(sample[1])
+  
+  if (grepl('^outs/filtered_feature_bc_matrix', matrix_path)) {
+      # directly read CR output
+      curr.obj <- CreateSeuratObject(
+        counts = Read10X(paste0(datadir, sample[1], '/', matrix_path)),
+        project=sample[2],
+        min.cells = 3,
+        min.features = 200)
+  } 
+  secondList[[sample[2]]] <- curr.obj
+}
+names(secondList)
+```
+
+## combine all samples to a single list
+```{r}
+all_list <- c(seu_list, firstList, secondList)
+names(all_list)
+length(all_list)
+
+saveRDS(all_list, paste0(out_path, 'out.rds'))
+
+
+```
+
+
