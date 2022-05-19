@@ -242,7 +242,7 @@ make_pseudotime_expression_heatmap_markers_only <- function(plt.dt.m, meta.dt.m,
     #plt.dt.m$gene <- factor(plt.dt.m$gene, levels=unique(plt.dt.m$gene))
     plt.dt.m$ylab <- factor(plt.dt.m$ylab, levels=unique(plt.dt.m$ylab))
     
-    # re-order manually for chris
+    # re-order genes manually
     ylab.order <- c("Hepatocytes :: ALB", "Hepatocytes :: ASGR1",
                     "Hepatocytes :: ASS1", "Hepatocytes :: CYP3A4", 
                     "Hepatocytes :: GHR", "Hepatocytes :: GLUL", 
