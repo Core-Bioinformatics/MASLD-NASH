@@ -22,3 +22,5 @@ scripts associated with NAFLD-NASH project
  other scripts are required / called by these.
 
 - `Pseudotime` - infer pseudotime in cholangiocyte and hepatocyte cells using Monocle3. Identify and plot genes differentially expressed over pseudotime.
+
+- `figure_scripts` - scripts and helper functions to produce the near final figures.
