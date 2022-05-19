@@ -16,9 +16,9 @@ scripts associated with NAFLD-NASH project
   2. plot them (run `run_4.Velocity.estimate-to-Velocity_plot.sh` or `run_make_separate_arrow_plots.sh`).
 
 - `cell-cell_interaction` - use CellPhoneDB to identify potentially interacting ligand-receptor pairs in different cell types. Expected run order is:
- * `1.prepare_labelled_seu_objs.R`
- * `2.run_run_cellPhoneDb_clusters.sh`
- * `3.Process-cellPhoneDb-output.R`
+  * `1.prepare_labelled_seu_objs.R`
+  * `2.run_run_cellPhoneDb_clusters.sh`
+  * `3.Process-cellPhoneDb-output.R`
  other scripts are required / called by these.
 
 - `Pseudotime` - infer pseudotime in cholangiocyte and hepatocyte cells using Monocle3. Identify and plot genes differentially expressed over pseudotime.
