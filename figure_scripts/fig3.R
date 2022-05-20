@@ -950,96 +950,86 @@ saveRDS(chol.hep.seu,
 
 
 # Slide  17 --------------------------------------------------------------------
-chol.hep.seu <- readRDS(paste0(projDir, seuDir, 'Aggr_Jan2022_Chol-Hep_harmony_th=0.1.rds'))
-hep.seu <- readRDS(file=paste0(projDir, seuDir, 'Aggr_Jan2022_Hep_harmony_th=0_c9_subclusters.rds'))
-chol.seu <- readRDS(paste0(projDir, seuDir, 'Aggr_Jan2022_Chol_harmony_th=0_c5_subclusters.rds'))
 
-################################################################################################
-THIS IS NOW MIGRATED TO do_clust_o_I_GSEA_and_barplot.R until Chris+Vas decide which to use!!
-########################################################################################
+# General setup ----------------------------------------------------------------
+projDir <- '/sutherland-scratch/rc845/Vallier/NAFLD-Gribben/4.Analysis/1.Preprocess_data/1.Pre-process-data/Pre-processed_data/2.Aggr_samples/2.Aggr-ALL/'
+seuDir <- '/6.Aggr-Jan2022/'
+plotDir <- '/home/USSR/awc30/liver_project/DEG_analysis_clusters/cluster_of_interest_results/plots/barplots/'
+tableDir <- '/home/USSR/awc30/liver_project/DEG_analysis_clusters/cluster_of_interest_results/tables/'
 
-# # DE analysis of the "bridge" cells - (hep9.2, 9.3, & chol 22) vs 
-# # chol-hep ---
-# clust.of.interest.cells <- list()
-# # which cells are in the chol clusters of interest
-# clust.of.interest.cells[['chol-22']] <- rownames(chol.seu@meta.data)[chol.seu@meta.data$SCT_snn_harmony_t.0.1.6==22]
-# # which cells are in the hep subclusters of interest
-# clust.of.interest.cells[['hep-9.2']] <- rownames(hep.seu@meta.data)[hep.seu@meta.data$clust.9.subcluster=='2']
-# clust.of.interest.cells[['hep-9.3']] <- rownames(hep.seu@meta.data)[hep.seu@meta.data$clust.9.subcluster=='3']
-# all.barcodes.of.interest <- unlist(clust.of.interest.cells)
-# 
-# chol.hep.seu@meta.data$is.bridge.cluster <- chol.hep.seu@meta.data$cell.annotation
-# chol.hep.seu@meta.data$is.bridge.cluster[rownames(chol.hep.seu@meta.data) %in% all.barcodes.of.interest] <-'bridge'
-# chol.hep.seu@meta.data$is.bridge.cluster[!(rownames(chol.hep.seu@meta.data) %in% all.barcodes.of.interest)] <-'not.bridge'
-# unique(chol.hep.seu@meta.data$is.bridge.cluster)
-# 
-# # sanity check that got correct cells
-# DimPlot(chol.hep.seu, reduction='umap_harmony_t.0.1', group.by='is.bridge.cluster')
-# 
-# 
-# # DGE analysis for cells in subclusters which are bridge
-# 
-# Idents(chol.hep.seu) <- chol.hep.seu@meta.data$is.bridge.cluster
-# # DE parameters:
-# logFC.th=0.5
-# p.val.adj.th=0.1
-# 
-# curr.markers <- FindMarkers(
-#   chol.hep.seu,
-#   ident.1='bridge',
-#   ident.2='not.bridge',
-#   logfc.threshold=logFC.th,
-#   min.pct=0.1,
-#   base=2)
-# curr.markers$gene <- rownames(curr.markers)
-# all.markers <- curr.markers
-# 
-# # filter for markers expressed higher in the cluster
-# all.markers.filt <- all.markers[all.markers[['avg_log2FC']] > 0,]
-# # filter for alpha value
-# all.markers.filt <- all.markers.filt[all.markers.filt[['p_val_adj']]<= p.val.adj.th,]
-# 
-# # all.markers.filt <- all.markers.filt[all.markers.filt[['cluster']]=="TRUE",]
-# # save the Wilcox markers recovered:
-# fwrite(all.markers.filt, 
-#        file=paste0(plotDir, 'slide_17_DE_genes.csv'))
-# 
-# # do the GSEA - for the all markers
-# background.genes <- get_SCT_genes(chol.hep.seu)
-# curr.DE.genes <- all.markers.filt$gene
-# gprofiler_results = gprofiler2::gost(curr.DE.genes,
-#                                      organism='hsapiens',
-#                                      custom_bg=background.genes,
-#                                      sources=c('GO:BP', 'GO:MF','GO:CC','KEGG','REAC','TF','MIRNA'),
-#                                      correction_method = 'fdr',
-#                                      evcodes=T)
-#   
-# # save full results table - nb only returns significant terms
-# fwrite(gprofiler_results$result,
-#        file=paste0(plotDir, 'slide_17_GSEA_results.csv'))
-# gsea.results <- fread(paste0(plotDir, 'slide_17_GSEA_results.csv'))
-# 
-# # get the terms told to plot
-# gsea.o.I <- fread('/home/USSR/awc30/liver_project/DEG_analysis_clusters/GSEA_of_interest_v3.csv')
-# 
-# GSEA_oI <- merge(gsea.results, gsea.o.I, by.x='term_id', by.y='term.id',
-#                      all.y=T)
-# 
-# GSEA_oI <- GSEA_oI[order(p_value, decreasing=T)]
-# GSEA_oI$term.name <- factor(GSEA_oI$term.name, levels=unique(GSEA_oI$term.name))
-# 
-# p <- ggplot(GSEA_oI, aes(x=term.name, y=-log(p_value)))+
-#   geom_bar(stat='identity', position='dodge')+
-#   facet_wrap(~term.type, scales='free')+
-#   #scale_x_discrete(position='top')+
-#   theme_bw()+
-#   xlab('')+
-#   ylab('-log(p value)')+
-#   coord_flip()
-#   #theme(axis.text.x=element_text(angle=30, hjust=0 ))
-# p
-# ggsave(paste0(plotDir, 'slide_17_barplot.pdf'), width=10, height=2)
-# 
+# get the terms told to plot
+gsea.o.I <- fread('/home/USSR/awc30/liver_project/DEG_analysis_clusters/GSEA_of_interest_v3.csv')
+
+# parameters for DE genes
+logFC.th=0.25
+p.val.adj.th=0.05
+upreg.only=F
+
+# read the hep 9.2, 9.3 barcodes 
+hep_bridge_barcodes <- get_clust9.2_9.3_barcodes()
+chol_bridge_barcodes <- get_clust22_barcodes()
+
+if (upreg.only) {
+  upreg.string <- '_upreg_only'
+} else {
+  upreg.string <- ''
+}
+
+# Compare chol-22 + hep9.2&9.3 versus all hepatocytes -------------------------- 
+expt.name <- 'chol-22+hep9.2+9.3_vs_hepatocytes'
+expt.name <- paste0(expt.name, upreg.string)
+
+# make seurat object with a column with cluster labels
+seu <- readRDS(file=paste0(projDir, seuDir, 'Aggr_Jan2022_Chol-Hep_harmony_th=0.1.rds'))
+barcode.list <- list('bridge'=c(chol_bridge_barcodes, hep_bridge_barcodes))
+seu <- make_DE_metadata(seu, barcode.list)
+
+# sanity check that got correct cells
+DimPlot(seu, reduction='umap_harmony_t.0.1', group.by='bridge.col')
+ggsave(paste0(plotDir, expt.name, '_UMAP.pdf'), width=10, height=10)
 
 
+# DGE analysis for cells of interest vs comparison
+ident.1 <- 'bridge'
+ident.2 <- 'Hepatocytes'
+L <- do_DE_and_GSEA(seu, ident.1, ident.2, p.val.adj.th, logFC.th, 
+                    tableDir, expt.name, upreg.only)
+DE.genes <- L[[1]]
+GSEA.terms <- L[[2]]
+p <- make_plot_of_interest(GSEA.terms, gsea.o.I)
+p
+ggsave(paste0(plotDir, expt.name, '.pdf'), width=10, height=2)
+
+
+# Compare chol-22 + hep9.2&9.3 versus end stage hepatocytes --------------------
+expt.name <- 'chol-22+hep9.2+9.3_vs_endStage_heps'
+expt.name <- paste0(expt.name, upreg.string)
+
+# make seurat object with a column with cluster labels
+seu <- readRDS(file=paste0(projDir, seuDir, 'Aggr_Jan2022_Chol-Hep_harmony_th=0.1.rds'))
+barcode.list <- list('bridge'=c(chol_bridge_barcodes, hep_bridge_barcodes))
+seu <- make_DE_metadata(seu, barcode.list)
+
+# subset to either bridge cell, or end stage only
+seu@meta.data$keep <- (seu@meta.data$Disease.status=="end stage" | 
+                         seu@meta.data$bridge.col=='bridge')
+seu.sub <- subset(seu, subset=keep==T)
+seu <- seu.sub
+table(seu.sub@meta.data[, c('Disease.status', 'bridge.col')])
+
+# sanity check that got correct cells
+DimPlot(seu, reduction='umap_harmony_t.0.1', group.by='bridge.col')
+ggsave(paste0(plotDir, expt.name, '_UMAP.pdf'), width=10, height=10)
+
+
+# DGE analysis for cells of interest vs comparison
+ident.1 <- 'bridge'
+ident.2 <- 'Hepatocytes'
+L <- do_DE_and_GSEA(seu, ident.1, ident.2, p.val.adj.th, logFC.th, 
+                    tableDir, expt.name, upreg.only)
+DE.genes <- L[[1]]
+GSEA.terms <- L[[2]]
+p <- make_plot_of_interest(GSEA.terms, gsea.o.I)
+p
+ggsave(paste0(plotDir, expt.name, '.pdf'), width=10, height=2)
 

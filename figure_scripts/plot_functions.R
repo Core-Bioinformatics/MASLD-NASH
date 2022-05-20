@@ -1,3 +1,129 @@
+get_clust9.2_9.3_barcodes <- function() {
+  hep.seu <- readRDS(file=paste0(projDir, seuDir, 'Aggr_Jan2022_Hep_harmony_th=0_c9_subclusters.rds'))
+  clust.of.interest.cells <- list()
+  clust.of.interest.cells[['hep-9.2']] <- rownames(hep.seu@meta.data)[hep.seu@meta.data$clust.9.subcluster=='2']
+  clust.of.interest.cells[['hep-9.3']] <- rownames(hep.seu@meta.data)[hep.seu@meta.data$clust.9.subcluster=='3']
+  all.barcodes.of.interest <- unlist(clust.of.interest.cells)
+  return(all.barcodes.of.interest)
+}
+
+
+get_clust22_barcodes <- function() {
+  chol.seu <- readRDS(paste0(projDir, seuDir, 'Aggr_Jan2022_Chol_harmony_th=0_c5_subclusters.rds'))
+  clust.of.interest.cells <- list()
+  clust.of.interest.cells[['chol-22']] <- rownames(chol.seu@meta.data)[chol.seu@meta.data$SCT_snn_harmony_t.0.1.6==22]
+  all.barcodes.of.interest <- unlist(clust.of.interest.cells)
+  return(all.barcodes.of.interest)
+}
+
+
+make_DE_metadata <- function(seu, barcode.list) {
+  # returns seu with new metadata col "bridge.col", with cell type, for all
+  # except cells in barcode.list, which are given name of list element
+  # barcode.list should be list('name'=barcodes will be labelled with 'name')
+  
+  seu@meta.data$bridge.col <- seu@meta.data$cell.annotation
+  
+  for (n in names(barcode.list)) {
+    seu@meta.data$bridge.col[rownames(seu@meta.data) %in% barcode.list[[n]]] <- n
+  }
+  
+  return(seu)
+}
+
+
+get_DE_genes <- function(seu, ident.1, ident.2, p.val.adj.th, logFC.th, upreg.only) {
+  # compares cells in ident.1 to ident.2 based on "bridge.col" metadata
+  # column. Returns ALL DE genes (not just those which are upreg).
+  
+  Idents(seu) <- seu@meta.data$bridge.col
+  
+  curr.markers <- FindMarkers(
+    seu,
+    ident.1=ident.1,
+    ident.2=ident.2,
+    logfc.threshold=logFC.th,
+    min.pct=0.1,
+    base=2)
+  curr.markers$gene <- rownames(curr.markers)
+  all.markers <- curr.markers
+  
+  all.markers$comparison <- paste0(ident.1, ' vs ', ident.2)
+  
+  # filter for alpha value
+  all.markers.filt <- all.markers[all.markers[['p_val_adj']]<= p.val.adj.th,]
+  
+  # filter for markers expressed higher in the cluster
+  if (upreg.only) {
+    all.markers.filt <- all.markers.filt[all.markers.filt[['avg_log2FC']] > 0,]
+  }
+  return(all.markers.filt)
+}
+
+
+do_DE_and_GSEA <- function(seu, ident.1, ident.2, p.val.adj.th, logFC.th, 
+                           tableDir, expt.name, upreg.only) {
+  
+  DE.markers <- get_DE_genes(seu, ident.1, ident.2, p.val.adj.th, logFC.th, upreg.only)
+  fwrite(DE.markers, 
+         file=paste0(tableDir, 'DE_', expt.name, '.csv'))
+  DE.markers <- fread(paste0(tableDir, 'DE_', expt.name, '.csv'))
+  
+  # do the GSEA - for the all markers
+  background.genes <- get_SCT_genes(seu)
+  curr.DE.genes <- DE.markers$gene
+  gprofiler_results = gprofiler2::gost(curr.DE.genes,
+                                       organism='hsapiens',
+                                       custom_bg=background.genes,
+                                       sources=c('GO:BP', 'GO:MF','GO:CC','KEGG','REAC','TF','MIRNA'),
+                                       correction_method = 'fdr',
+                                       evcodes=T)
+  # save full results table - nb only returns significant terms
+  fwrite(gprofiler_results$result,
+         file=paste0(tableDir, 'GSEA_', expt.name, '.csv'))
+  
+  return(list(DE.markers, gprofiler_results$result))
+}
+
+
+get_SCT_genes <- function(seu) {
+  # for big matrix, this breaks and too slow anyway. Probably just getting 
+  
+  # E <- seu@assays$RNA@counts
+  # total.expression <- apply(E, 1, sum)
+  # expressed <- total.expression[total.expression > 0]
+  # 
+  # return(names(expressed))
+  
+  return(rownames(seu@assays$SCT@counts))
+}
+
+
+make_plot_of_interest <- function(GSEA.terms, gsea.o.I) {
+  
+  # now only plot SIGNIFICANT terms of interest  
+  # GSEA_oI <- merge(GSEA.terms, gsea.o.I, by.x='term_id', by.y='term.id',
+  #                  all.y=T)
+  GSEA_oI <- merge(GSEA.terms, gsea.o.I, by.x='term_id', by.y='term.id',
+                   all.y=F)
+  
+  GSEA_oI <- GSEA_oI[order(GSEA_oI$p_value, decreasing=T), ]
+  GSEA_oI$term.name <- factor(GSEA_oI$term.name, levels=unique(GSEA_oI$term.name))
+  
+  
+  
+  p <- ggplot(GSEA_oI, aes(x=term.name, y=-log(p_value)))+
+    geom_bar(stat='identity', position='dodge')+
+    facet_wrap(~term.type, scales='free')+
+    #scale_x_discrete(position='top')+
+    theme_bw()+
+    xlab('')+
+    ylab('-log(p value)')+
+    coord_flip()
+  
+  return(p)
+}
+
 make_gene_expression_umap <- function(seu, gene, is.log=F) {
   if (!(is.log)) {
     p <- FeaturePlot(seu, slot='counts', features=gene, reduction='umap_harmony_t.0',
