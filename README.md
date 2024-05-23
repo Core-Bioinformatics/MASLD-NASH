@@ -1,5 +1,9 @@
-# NAFLD-NASH
-scripts associated with NAFLD-NASH project
+# MASLD-NASH
+scripts associated with MASLD-NASH project, now published in Nature
+
+Acquisition of epithelial plasticity in human chronic liver disease, Gribben et al, 2024
+https://www.nature.com/articles/s41586-024-07465-2
+
 
 - `alignment` - use CellRanger to align fastq files
 
